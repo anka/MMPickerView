@@ -32,12 +32,14 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
 @property (nonatomic, strong) UIButton *pickerDoneButton;
 @property (nonatomic, strong) UIPickerView *pickerView;
 @property (nonatomic, strong) NSArray *pickerViewArray;
+@property (nonatomic, strong) NSArray *pickerViewComponentSizes;
 @property (nonatomic, strong) UIColor *pickerViewTextColor;
 @property (nonatomic, strong) UIFont *pickerViewFont;
 @property (nonatomic, assign) CGFloat yValueFromTop;
 @property (nonatomic, assign) NSInteger pickerViewTextAlignment;
 @property (nonatomic, assign) BOOL pickerViewShowsSelectionIndicator;
-@property (copy) void (^onDismissCompletion)(NSString *);
+@property (nonatomic, assign) BOOL multidimensional;
+@property (copy) void (^onDismissCompletion)(id);
 @property (copy) NSString *(^objectToStringConverter)(id object);
 
 @end
@@ -63,6 +65,8 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
   
   [[self sharedView] initializePickerViewInView:view
                                       withArray:strings
+                             withComponentSizes:nil
+                             isMultidimensional:NO
                                     withOptions:options];
   
   [[self sharedView] setPickerHidden:NO callBack:nil];
@@ -81,24 +85,45 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
   [self sharedView].onDismissCompletion = completion;
   [[self sharedView] initializePickerViewInView:view
                                       withArray:objects
+                             withComponentSizes:nil
+                             isMultidimensional:NO
                                     withOptions:options];
   [[self sharedView] setPickerHidden:NO callBack:nil];
   [view addSubview:[self sharedView]];
   
 }
 
++(void)showPickerViewInView: (UIView *)view
+                 withArrays: (NSArray *)arrays
+         withComponentSizes: (NSArray *)sizes
+                withOptions: (NSDictionary *)options
+                 completion: (void (^)(NSArray* selectedComponents))completion{
+
+    [[self sharedView] initializePickerViewInView:view
+                                        withArray:arrays
+                               withComponentSizes:sizes
+                               isMultidimensional:YES
+                                      withOptions:options];
+    
+    [[self sharedView] setPickerHidden:NO callBack:nil];
+    [self sharedView].onDismissCompletion = completion;
+    [view addSubview:[self sharedView]];
+    
+}
+
+
 #pragma mark - Dismiss Methods
 
 +(void)dismissWithCompletion:(void (^)(NSString *))completion{
-  [[self sharedView] setPickerHidden:YES callBack:completion];
+    [[self sharedView] setPickerHidden:YES callBack:completion];
 }
 
 -(void)dismiss{
- [MMPickerView dismissWithCompletion:self.onDismissCompletion];
+    [MMPickerView dismissWithCompletion:self.onDismissCompletion];
 }
 
 +(void)removePickerView{
-  [[self sharedView] removeFromSuperview];
+    [[self sharedView] removeFromSuperview];
 }
 
 #pragma mark - Show/hide PickerView methods
@@ -131,17 +156,41 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
 
 -(void)initializePickerViewInView: (UIView *)view
                         withArray: (NSArray *)array
+               withComponentSizes: (NSArray *)sizes
+               isMultidimensional: (BOOL) multidemsional
                       withOptions: (NSDictionary *)options {
   
   _pickerViewArray = array;
+  _multidimensional = multidemsional;
+  _pickerViewComponentSizes = sizes;
+    
+  // get number of components
+  NSInteger numberComponents = multidemsional ? array.count : 1;
+    
+  // if no component sizes were given just calculate them
+  if(_pickerViewComponentSizes == nil || numberComponents != _pickerViewComponentSizes.count)
+  {
+        _pickerViewComponentSizes = [[NSMutableArray alloc] initWithCapacity:numberComponents];
+        for(int i=0; i<numberComponents; i++)
+        {
+            [(NSMutableArray*)_pickerViewComponentSizes addObject:@(320.f/numberComponents)];
+        }
+  }
+
   
   id chosenObject = options[MMselectedObject];
-  NSInteger selectedRow;
+  NSMutableArray* selectedRows = [[NSMutableArray alloc] init];
   
-  if (chosenObject!=nil) {
-    selectedRow = [_pickerViewArray indexOfObject:chosenObject];
+  if (chosenObject != nil) {
+      if (_multidimensional) {
+          for (int i=0;i<numberComponents;i++) {
+              [selectedRows addObject: [NSNumber numberWithInteger:[_pickerViewArray[i] indexOfObject:chosenObject[i]]]];
+          }
+      } else {
+          [selectedRows addObject: [NSNumber numberWithInteger:[_pickerViewArray indexOfObject:chosenObject]]];
+      }
   }else{
-    selectedRow = [[_pickerViewArray objectAtIndex:0] integerValue];
+      [selectedRows addObject:[NSNumber numberWithInteger:0]];
   }
   
   
@@ -151,13 +200,13 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
   _pickerViewTextAlignment = 1;
   
   if (textAlignment != nil) {
-  _pickerViewTextAlignment = [options[MMtextAlignment] integerValue];
+      _pickerViewTextAlignment = [options[MMtextAlignment] integerValue];
   }
   
   BOOL showSelectionIndicator = [options[MMshowsSelectionIndicator] boolValue];
   
   if (!showSelectionIndicator) {
-    _pickerViewShowsSelectionIndicator = 1;
+      _pickerViewShowsSelectionIndicator = 1;
   }
   _pickerViewShowsSelectionIndicator = showSelectionIndicator;
   
@@ -209,19 +258,6 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
     _pickerViewFont = [UIFont systemFontOfSize:22];
   }
   _pickerViewFont = pickerViewFont;
-  
-  /*
-   //ToolbackBackgroundImage - Clear Color
-   if (toolbarBackgroundImage!=nil) {
-   //Top bar imageView
-   _pickerTopBarImageView = [[UIImageView alloc] initWithFrame:CGRectMake(0.0, 0.0, _pickerContainerView.frame.size.width, 44.0)];
-   //[_pickerContainerView addSubview:_pickerTopBarImageView];
-   _pickerTopBarImageView.image = toolbarBackgroundImage;
-   [_pickerViewToolBar setHidden:YES];
-   
-   }
-   */
-  
   _pickerContainerView.backgroundColor = pickerViewBackgroundColor;
   [_pickerViewContainerView addSubview:_pickerContainerView];
   
@@ -263,14 +299,6 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
   _pickerViewToolBar.items = @[flexibleSpace, _pickerViewBarButtonItem];
   [_pickerViewBarButtonItem setTintColor:buttonTextColor];
   
-  //[_pickerViewBarButtonItem setTitleTextAttributes:[NSDictionary dictionaryWithObjectsAndKeys: [UIFont fontWithName:@"Helvetica-Neue" size:23.0], UITextAttributeFont,nil] forState:UIControlStateNormal];
-  
-  /*
-   _pickerDoneButton = [[UIButton alloc] initWithFrame:CGRectMake(_pickerContainerView.frame.size.width - 80.0, 10.0, 60.0, 24.0)];
-   [_pickerDoneButton setTitle:@"Done" forState:UIControlStateNormal];
-   [_pickerContainerView addSubview:_pickerDoneButton];
-   [_pickerDoneButton addTarget:self action:@selector(dismiss) forControlEvents:UIControlEventTouchUpInside];
-  */
   
   //Add pickerView
   _pickerView = [[UIPickerView alloc] initWithFrame:CGRectMake(0.0, 44.0, 320.0, 216.0)];
@@ -283,41 +311,69 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
   [_pickerContainerView setTransform:CGAffineTransformMakeTranslation(0.0, CGRectGetHeight(_pickerContainerView.frame))];
   
   //Set selected row
-  [_pickerView selectRow:selectedRow inComponent:0 animated:YES];
+  for (int comp = 0; comp < numberComponents; comp++) {
+        [_pickerView selectRow:[selectedRows[comp] integerValue] inComponent:comp animated:YES];
+  }
 }
 
 #pragma mark - UIPickerViewDataSource
 
 - (NSInteger)numberOfComponentsInPickerView: (UIPickerView *)pickerView {
-  return 1;
+    if (_multidimensional) {
+        return _pickerViewArray.count;
+    } else {
+        return 1;
+    }
 }
 
 - (NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent: (NSInteger)component {
-  return [_pickerViewArray count];
+    if (_multidimensional) {
+        return [_pickerViewArray[component] count];
+    } else {
+        return [_pickerViewArray count];
+    }
 }
 
 - (NSString *)pickerView: (UIPickerView *)pickerView
              titleForRow: (NSInteger)row
             forComponent: (NSInteger)component {
-  if (self.objectToStringConverter == nil){
-    return [_pickerViewArray objectAtIndex:row];
-  } else{
-    return (self.objectToStringConverter ([_pickerViewArray objectAtIndex:row]));
-  }
+    if (_multidimensional) {
+        return [_pickerViewArray[component] objectAtIndex:row];
+    } else {
+        
+        if (self.objectToStringConverter == nil){
+            return [_pickerViewArray objectAtIndex:row];
+        } else{
+            return (self.objectToStringConverter ([_pickerViewArray objectAtIndex:row]));
+        }
+    }
 }
 
 #pragma mark - UIPickerViewDelegate
 
 -(void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component {
-  if (self.objectToStringConverter == nil) {
-    self.onDismissCompletion ([_pickerViewArray objectAtIndex:row]);
-  } else{
-    self.onDismissCompletion (self.objectToStringConverter ([self selectedObject]));
-  }
+    if (_multidimensional) {
+        self.onDismissCompletion ([self selectedObject]);
+    } else {
+        if (self.objectToStringConverter == nil) {
+            self.onDismissCompletion ([_pickerViewArray objectAtIndex:row]);
+        } else{
+            self.onDismissCompletion (self.objectToStringConverter ([self selectedObject]));
+        }
+    }
 }
 
 - (id)selectedObject {
-  return [_pickerViewArray objectAtIndex: [self.pickerView selectedRowInComponent:0]];
+    if (_multidimensional) {
+        NSMutableArray* result = [[NSMutableArray alloc] init];
+        for (int i=0;i<_pickerViewArray.count;i++) {
+            [result addObject:[_pickerViewArray[i] objectAtIndex: [self.pickerView selectedRowInComponent:i]]];
+        }
+        
+        return [[NSArray alloc] initWithArray:result];
+    } else {
+        return [_pickerViewArray objectAtIndex: [self.pickerView selectedRowInComponent:0]];
+    }
 }
 
 - (UIView *)pickerView:(UIPickerView *)pickerView
@@ -331,7 +387,7 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
   
   if (customPickerView==nil) {
     
-    CGRect frame = CGRectMake(0.0, 0.0, 292.0, 44.0);
+    CGRect frame = CGRectMake(0.0, 0.0, 320.f, 44.0);
     customPickerView = [[UIView alloc] initWithFrame: frame];
     
 //   UIImageView *patternImageView = [[UIImageView alloc] initWithFrame:frame];
@@ -342,7 +398,7 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
       _yValueFromTop = 3.0;
     }
     
-    CGRect labelFrame = CGRectMake(0.0, _yValueFromTop, 292.0, 35); // 35 or 44
+    CGRect labelFrame = CGRectMake(0.0, _yValueFromTop, 320.f, 35); // 35 or 44
     pickerViewLabel = [[UILabel alloc] initWithFrame:labelFrame];
     [pickerViewLabel setTag:1];
     [pickerViewLabel setTextAlignment: _pickerViewTextAlignment];
@@ -360,15 +416,23 @@ NSString * const MMshowsSelectionIndicator = @"showsSelectionIndicator";
     }
   }
   
-  if (self.objectToStringConverter == nil){
-    [pickerViewLabel setText: [_pickerViewArray objectAtIndex:row]];
-  } else{
-    [pickerViewLabel setText:(self.objectToStringConverter ([_pickerViewArray objectAtIndex:row]))];
+  if (_multidimensional) {
+        [pickerViewLabel setText:[_pickerViewArray[component] objectAtIndex:row]];
+  } else {
+        if (self.objectToStringConverter == nil){
+            [pickerViewLabel setText: [_pickerViewArray objectAtIndex:row]];
+        } else{
+            [pickerViewLabel setText:(self.objectToStringConverter ([_pickerViewArray objectAtIndex:row]))];
+        }
   }
   
   return customPickerView;
 
 }
 
+- (CGFloat) pickerView:(UIPickerView *)pickerView widthForComponent:(NSInteger)component
+{
+    return [(NSNumber*)[_pickerViewComponentSizes objectAtIndex:component] floatValue];
+}
 
 @end

@@ -32,6 +32,13 @@ extern NSString * const MMshowsSelectionIndicator;
     objectToStringConverter: (NSString *(^)(id object))converter
        completion: (void(^)(id selectedObject))completion;
 
+// Provides a picker with multiple comonents
++(void)showPickerViewInView: (UIView *)view
+                 withArrays: (NSArray *)arrays
+         withComponentSizes: (NSArray *)sizes
+                withOptions: (NSDictionary *)options
+                 completion: (void (^)(NSArray* selectedComponents))completion;
+
 +(void)dismissWithCompletion: (void(^)(NSString *))completion;
 
 @end
