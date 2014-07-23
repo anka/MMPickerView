@@ -10,6 +10,10 @@ Works with iOS 6 and even better in iOS 7, because it let's you change the backg
 ![MMPickerView](https://dl.dropboxusercontent.com/u/73895323/MMPickerView-GitHub.png)
 Images to the left: iOS 6. Images to the right: iOS 7.
 
+![MMPickerView](./Demo/example_multiple_components.png)
+Supporting multiple components.
+
+
 <br />
 ## Installation
 
@@ -48,6 +52,12 @@ You can show the PickerView:
                 withOptions: (NSDictionary *)options
     objectToStringConverter: (NSString *(^)(id object))converter
        			 completion: (void(^)(id selectedObject))completion;
+
++(void)showPickerViewInView: (UIView *)view
+                 withArrays: (NSArray *)arrays
+         withComponentSizes: (NSArray *)sizes
+                withOptions: (NSDictionary *)options
+                 completion: (void (^)(NSArray* selectedComponents))completion;
 ```
 
 
@@ -85,6 +95,24 @@ You can show the PickerView:
   }];
 ```
 
+#### Example 3 - Show with multiple components.
+```objective-c
+  
+    NSArray *components = @[@[@""], @[@"1", @"2", @"3"], @[@"1", @"2", @"3"], @[@"1", @"2", @"3"], @[@"1", @"2", @"3"], @[@""]];
+    NSArray *selected = @[@"", @"1", @"2", @"3", @"1", @"",];
+    NSArray *sizes = @[@(100), @(30), @(30), @(30), @(30), @(100)];
+
+    //PickerView using array of objects, with selectedObject functionality
+    [MMPickerView showPickerViewInView:self.view
+                            withArrays:components
+                    withComponentSizes:sizes
+                           withOptions:@{MMselectedObject: selected}
+                            completion:^(NSArray *selectedComponents) {
+                                // interpret the selected components
+                            }
+     ];
+```
+
 ### Customizing MMPickerView
 Both show methods use a `NSDictionary` to set the options of the `MMPickerView`. If you want a native looking PickerView, just `withOptions: nil`. In case of customization, use any of the different properties to customize the PickerView. All of the properties are optional, which means that if you only want to change one thing, like for eg the text color you can do like this, `withOptions: @{MMtextColor: [UIColor redColor]}`
 
@@ -116,7 +144,7 @@ Both show methods use a `NSDictionary` to set the options of the `MMPickerView`.
  */
 ```
 
-#### Example 3 - Show with an array of strings and with custom colors and custom font.
+#### Example 4 - Show with an array of strings and with custom colors and custom font.
 ```objective-c
   
   NSArray *strings = @[@"This", @"is", @"just", @"an array", @"of strings."];
@@ -143,7 +171,7 @@ A useful feature is to let the PickerView select whatever was selected last time
 
 
 
-#### Example 4 - Show with an array of strings set selectedValue on PickerView.
+#### Example 5 - Show with an array of strings set selectedValue on PickerView.
 
 ```objective-c
   
